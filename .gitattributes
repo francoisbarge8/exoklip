@@ -1,0 +1,19 @@
+# Normalise line endings: LF in the repository, native in the working tree.
+# Without this, a Windows checkout commits CRLF and every diff looks rewritten.
+* text=auto eol=lf
+
+*.py    text diff=python
+*.md    text
+*.toml  text
+*.cfg   text
+*.yml   text
+*.yaml  text
+
+# Binary — never diff, never convert
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.pdf   binary
+*.fits  binary
+*.npy   binary
+*.npz   binary

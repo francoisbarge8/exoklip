@@ -1,0 +1,112 @@
+cff-version: 1.2.0
+message: "If you use this software in work that leads to a publication, please cite it, and cite the original method papers listed in `references` below."
+title: "exoklip: KLIP/ADI post-processing for direct imaging of exoplanets"
+abstract: >-
+  A dependency-light Python implementation of Angular Differential Imaging and
+  Karhunen-Loeve Image Projection for high-contrast direct imaging, including
+  small-sample detection statistics, throughput-corrected contrast curves, the
+  negative fake companion technique, and a Fourier-optics ADI sequence simulator.
+type: software
+authors:
+  - family-names: Barge
+    given-names: François
+    alias: francoisb12
+license: MIT
+version: 0.1.0
+repository-code: "https://github.com/francoisb12/exoklip"
+keywords:
+  - astronomy
+  - exoplanets
+  - direct-imaging
+  - high-contrast-imaging
+  - angular-differential-imaging
+  - KLIP
+  - principal-component-analysis
+  - adaptive-optics
+
+references:
+  - type: article
+    title: "Angular Differential Imaging: A Powerful High-Contrast Imaging Technique"
+    authors:
+      - family-names: Marois
+        given-names: Christian
+      - family-names: Lafrenière
+        given-names: David
+      - family-names: Doyon
+        given-names: René
+      - family-names: Macintosh
+        given-names: Bruce
+      - family-names: Nadeau
+        given-names: Daniel
+    journal: "The Astrophysical Journal"
+    volume: 641
+    start: 556
+    year: 2006
+    doi: 10.1086/500401
+
+  - type: article
+    title: "A New Algorithm for Point-Spread Function Subtraction in High-Contrast Imaging: A Demonstration with Angular Differential Imaging"
+    authors:
+      - family-names: Lafrenière
+        given-names: David
+      - family-names: Marois
+        given-names: Christian
+      - family-names: Doyon
+        given-names: René
+      - family-names: Nadeau
+        given-names: Daniel
+      - family-names: Artigau
+        given-names: Étienne
+    journal: "The Astrophysical Journal"
+    volume: 660
+    start: 770
+    year: 2007
+    doi: 10.1086/513180
+
+  - type: article
+    title: "Detection and Characterization of Exoplanets and Disks Using Projections on Karhunen-Loeve Eigenimages"
+    authors:
+      - family-names: Soummer
+        given-names: Rémi
+      - family-names: Pueyo
+        given-names: Laurent
+      - family-names: Larkin
+        given-names: James
+    journal: "The Astrophysical Journal Letters"
+    volume: 755
+    start: L28
+    year: 2012
+    doi: 10.1088/2041-8205/755/2/L28
+
+  - type: article
+    title: "Fundamental Limitations of High Contrast Imaging Set by Small Sample Statistics"
+    authors:
+      - family-names: Mawet
+        given-names: Dimitri
+      - family-names: Milli
+        given-names: Julien
+      - family-names: Wahhaj
+        given-names: Zahed
+      - family-names: Pelat
+        given-names: Didier
+      - family-names: Absil
+        given-names: Olivier
+      - family-names: Delacroix
+        given-names: Christian
+      - family-names: Boccaletti
+        given-names: Anthony
+      - family-names: Kasper
+        given-names: Markus
+      - family-names: Kenworthy
+        given-names: Matthew
+      - family-names: Marois
+        given-names: Christian
+      - family-names: Mennesson
+        given-names: Bertrand
+      - family-names: Pueyo
+        given-names: Laurent
+    journal: "The Astrophysical Journal"
+    volume: 792
+    start: 97
+    year: 2014
+    doi: 10.1088/0004-637X/792/2/97

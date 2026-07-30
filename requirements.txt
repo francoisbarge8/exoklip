@@ -1,0 +1,9 @@
+# Hard requirements
+numpy>=1.24
+scipy>=1.10
+
+# Optional — enable extra features, never required for the core algorithms
+# astropy>=5.0      # FITS I/O and real-data headers
+# matplotlib>=3.6   # figures (exoklip.plotting)
+# tqdm>=4.60        # progress bars
+# pytest>=7.0       # test suite

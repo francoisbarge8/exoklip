@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: tests (py${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          # The package is developed on Windows — keep one job honest about it.
+          - os: windows-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy scipy matplotlib pytest pytest-cov
+          python -m pip install -e . --no-deps
+
+      - name: Run the test suite
+        run: python -m pytest tests -q --cov=exoklip --cov-report=term-missing
+
+  minimal-deps:
+    # The package claims numpy + scipy are its only hard dependencies.
+    # This job is what makes that claim true rather than aspirational.
+    name: numpy + scipy only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install without any optional dependency
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy scipy pytest
+          python -m pip install -e . --no-deps
+
+      - name: Import and run a full KLIP reduction with nothing else installed
+        run: |
+          python -c "
+          import sys
+          for m in ('matplotlib', 'astropy', 'skimage', 'sklearn', 'imageio', 'pandas', 'tqdm'):
+              assert m not in sys.modules
+              try:
+                  __import__(m)
+              except ImportError:
+                  continue
+              raise SystemExit(f'{m} is installed — this job must run without it')
+          import exoklip
+          from exoklip.simulate import SimConfig, simulate_adi_sequence
+          sim = simulate_adi_sequence(SimConfig(n_frames=20, size=101, seed=0))
+          img = exoklip.klip_adi(sim['cube'], sim['angles'], fwhm=sim['fwhm'], n_modes=5)
+          print('KLIP reduction OK, shape', img.shape)
+          "
+
+      - name: Tests still pass on a bare install
+        run: python -m pytest tests -q
+
+  lint:
+    name: lint (errors only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install ruff
+      # Deliberately narrow: real errors (syntax, undefined names, unused
+      # imports) rather than style opinions. Widen it when the style settles.
+      - run: ruff check --select=E9,F63,F7,F82,F401 --output-format=github .

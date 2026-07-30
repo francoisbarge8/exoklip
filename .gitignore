@@ -1,0 +1,66 @@
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Project specific -------------------------------------------------------
+# Smoke-test figures written by the plotting self-checks: throwaway.
+examples/output/_smoke/
+
+# Science data is never committed: FITS cubes are hundreds of MB and are not
+# ours to redistribute. Fetch them from the Keck Observatory Archive instead
+# (see the "Real data" section of the README).
+*.fits
+*.fits.gz
+*.fit
+data/
+raw/
+
+# Simulated datasets written by `python -m exoklip simulate` — regenerate them
+# from the seed rather than committing them.
+*.npy
+*.npz
+
+# The reference demo figures under examples/output/ ARE committed on purpose:
+# they are what the README shows. Keep them small.
