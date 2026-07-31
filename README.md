@@ -265,7 +265,7 @@ Honestly stated:
 pytest -q
 ```
 
-52 tests, about 9 seconds. They are numerical, not smoke tests: the KL basis is
+74 tests, about 25 seconds. They are numerical, not smoke tests: the KL basis is
 checked to be orthonormal to 1.1e-15, KLIP is compared against an independently
 written SVD implementation to 2e-15, injected companions must return at the
 requested position angle for all eight cardinal and diagonal angles, and the

@@ -276,7 +276,7 @@ Voir `examples/demo_real_data.py`.
 pytest -q
 ```
 
-52 tests, environ 9 secondes. Ce sont des tests numériques, pas des smoke tests :
+74 tests, environ 25 secondes. Ce sont des tests numériques, pas des smoke tests :
 la base KL est vérifiée orthonormée à 1,1e-15, KLIP est comparé à une
 implémentation SVD écrite indépendamment à 2e-15, les compagnons injectés
 doivent revenir à l'angle de position demandé pour les huit angles cardinaux et
