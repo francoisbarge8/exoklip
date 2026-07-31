@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exoklip"
+version = "0.1.0"
+description = "KLIP/ADI post-processing for direct imaging of exoplanets, with detection statistics and a Fourier-optics simulator"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "François Barge" }]
+keywords = [
+    "astronomy",
+    "exoplanets",
+    "direct-imaging",
+    "high-contrast-imaging",
+    "angular-differential-imaging",
+    "KLIP",
+    "adaptive-optics",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+
+# Deliberately minimal. Everything below is optional, and the test suite runs
+# with nothing but these two installed.
+dependencies = ["numpy>=1.24", "scipy>=1.10"]
+
+[project.optional-dependencies]
+fits = ["astropy>=5.0"]
+plot = ["matplotlib>=3.6"]
+dev = ["pytest>=7.0", "pytest-cov", "ruff"]
+all = ["astropy>=5.0", "matplotlib>=3.6", "tqdm>=4.60", "pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/francoisb12/exoklip"
+Repository = "https://github.com/francoisb12/exoklip"
+Issues = "https://github.com/francoisb12/exoklip/issues"
+
+[project.scripts]
+exoklip = "exoklip.cli:main"
+
+[tool.setuptools]
+packages = ["exoklip"]
+
+[tool.ruff]
+line-length = 96
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E741",  # ambiguous variable names: `l` for a label is fine here
+    "B008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
