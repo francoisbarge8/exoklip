@@ -1,3 +1,17 @@
+> **Note historique.** Ce document est le cahier des charges rédigé *avant*
+> l'implémentation, conservé parce qu'il explique les intentions de conception.
+> Ce n'est pas la documentation de référence — le README l'est. Le code s'en
+> écarte sur trois points, et le code a raison :
+>
+> - `pipeline.py` (`run_pipeline`, `PipelineConfig`) n'a jamais été écrit. Son
+>   rôle est couvert par `exoklip/cli.py` et `examples/demo_full.py`.
+> - Plusieurs signatures ont évolué à l'usage : `snr_student(exclude_adjacent=)`
+>   plutôt que `exclude_negative=`, `throughput(injection_contrast=)` plutôt que
+>   `injection_snr=`, `optimize_n_modes` sans argument `psf`, `detect_sources`
+>   sans `mode=`.
+> - La formule d'Airy avec obstruction porte un facteur `eps**2`, pas `eps` :
+>   c'est ce qui rend l'amplitude égale à 1 au centre. Le SPEC était faux.
+
 # exoklip — SPEC (contrat d'implémentation)
 
 Package Python de détection d'exoplanètes par imagerie directe : KLIP / ADI,
