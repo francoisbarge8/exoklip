@@ -1305,3 +1305,105 @@ def _to_gray(samples: NDArray[Any], maxval: int) -> NDArray[np.float64]:
         f"cannot convert a {n_channels}-channel image to greyscale; expected "
         f"1, 2, 3 or 4 channels."
     )
+
+
+def load_image_legacy(
+    path: str | os.PathLike[str],
+    flip: bool = True,
+    warn: bool = True,
+) -> NDArray[np.float64]:
+    """Load a PNG or JPEG preview image as a 2D greyscale array.
+
+    Provided so that the legacy single-image path of the package
+    (``legacy/b_fixed.py``) runs without imageio or scikit-image. PNG is decoded
+    natively with :mod:`zlib` and :mod:`struct`; JPEG needs Pillow, which is
+    optional.
+
+    .. warning::
+
+       **Preview images are not science data.** An 8-bit file has 256
+       distinguishable levels. A planet at a contrast of 1e-4 to 1e-6 sits far
+       below one quantisation step of the stellar halo, so it is destroyed by
+       the encoding before any algorithm runs — and JPEG additionally applies
+       lossy block compression that invents and removes structure at exactly
+       the spatial scale of a PSF. Detecting a companion in such a file is not
+       possible in principle, not merely difficult. Use
+       :func:`load_fits` on the original data.
+
+    Parameters
+    ----------
+    path : str or path-like
+        Image file. The format is chosen from the extension, falling back to
+        sniffing the PNG signature.
+    flip : bool, default True
+        Flip vertically on load. Image formats store row 0 at the **top**,
+        whereas this package indexes images with ``y`` increasing **upwards**
+        (the convention of :func:`exoklip.core.frame_center` and of every plot
+        drawn with ``origin='lower'``). Leaving this on keeps a loaded preview
+        oriented like a loaded FITS file. Set it to False if you want the raw
+        file order.
+    warn : bool, default True
+        Emit the quantisation warning. Only silence it if you are deliberately
+        working on previews for display purposes.
+
+    Returns
+    -------
+    ndarray
+        ``(y, x)`` float64 array normalised to ``[0, 1]``.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file does not exist.
+    ValueError
+        If the format is unsupported or the file is malformed.
+    ImportError
+        For JPEG input when Pillow is not installed.
+    """
+    resolved = _as_path(path)
+    if not os.path.isfile(resolved):
+        raise FileNotFoundError(f"no such image file: {resolved}")
+
+    with open(resolved, "rb") as handle:
+        data = handle.read()
+    if not data:
+        raise ValueError(f"{resolved} is empty.")
+
+    extension = os.path.splitext(resolved)[1].lower()
+
+    if warn:
+        logger.warning(
+            "Loading %s as a preview image. An 8-bit file holds 256 levels, so a "
+            "companion at 1e-4 contrast or fainter is quantised away before any "
+            "algorithm sees it. Preview images cannot be used for detection - "
+            "fetch the original FITS and use exoklip.io.load_fits.",
+            os.path.basename(resolved),
+        )
+
+    if data[:8] == _PNG_SIGNATURE:
+        samples, maxval = _decode_png(data)
+        image = _to_gray(samples, maxval)
+    elif extension in (".jpg", ".jpeg", ".jpe", ".jfif") or data[:2] == b"\xff\xd8":
+        try:
+            from PIL import Image  # noqa: PLC0415
+        except ImportError as exc:
+            raise ImportError(
+                "reading JPEG requires Pillow, which is an optional dependency: "
+                "pip install Pillow. PNG needs no extra package, and FITS is what "
+                "you actually want for science - see exoklip.io.load_fits."
+            ) from exc
+        with Image.open(resolved) as handle:
+            array = np.asarray(handle, dtype=np.float64)
+        image = _to_gray(array, 255)
+    else:
+        raise ValueError(
+            f"unsupported image format for {resolved!r} (extension {extension!r}). "
+            "This loader handles PNG natively and JPEG through Pillow; for "
+            "scientific data use exoklip.io.load_fits."
+        )
+
+    if image.ndim != 2:
+        raise ValueError(
+            f"decoded image has shape {image.shape}; expected a 2D greyscale array."
+        )
+    return np.flipud(image).copy() if flip else image
