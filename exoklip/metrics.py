@@ -12,10 +12,11 @@ treatment is a two-sample Student t-test, which costs a penalty factor that
 diverges as the separation shrinks.
 
 The consequence is concrete: to claim a detection at the same confidence as a
-5-sigma Gaussian threshold, you need a signal-to-noise **ratio** of about 5.6 at
-10 resolution elements, but about 9 at 5 of them. Reporting the raw ratio as
-"sigma" at small separation is the single most common way to publish a
-detection that is not there.
+5-sigma Gaussian threshold you need a signal-to-noise **ratio** of about 5.7
+where 60 resolution elements are available, 8.2 at 20 of them, and 23.5 at 10
+(:func:`significance_threshold`). Reporting the raw ratio as "sigma" at small
+separation is the single most common way to publish a detection that is not
+there.
 
 Throughput
 ----------
@@ -160,6 +161,26 @@ def _comparison_indices(n: int, exclude_adjacent: bool) -> NDArray[np.intp]:
     return idx
 
 
+def _student_quantile(
+    sigma: float, n_apertures: int, exclude_adjacent: bool = True
+) -> float:
+    """Threshold on the *t statistic* returned by :func:`snr_student`.
+
+    :func:`snr_student` and :func:`snr_map` already divide by
+    ``sqrt(1 + 1/n2)``, so their output is distributed as Student-t with
+    ``n2 - 1`` degrees of freedom under the null hypothesis and must be
+    compared with the bare quantile — applying the ``sqrt(1 + 1/n2)`` penalty a
+    second time would over-state the threshold. :func:`significance_threshold`
+    is the corresponding threshold for the *raw* ratio
+    ``(x_1 - xbar_2) / s_2``, which is what a contrast curve needs.
+    """
+    n2 = len(_comparison_indices(int(n_apertures), exclude_adjacent))
+    if n2 < 2:
+        return np.inf
+    fpf = float(stats.norm.sf(sigma))
+    return float(stats.t.ppf(1.0 - fpf, n2 - 1))
+
+
 def significance_threshold(
     sigma: float, n_apertures: int, exclude_adjacent: bool = True
 ) -> float:
@@ -169,6 +190,15 @@ def significance_threshold(
     desired false-positive fraction to a Student-t quantile with the degrees of
     freedom actually available, then apply the ``sqrt(1 + 1/n2)`` penalty for
     estimating the mean from a finite sample.
+
+    The value is expressed **in units of the aperture-flux standard deviation**
+    ``s_2``, i.e. it is the threshold for the raw ratio
+    ``(x_1 - xbar_2) / s_2``. That is exactly what :func:`contrast_curve`
+    multiplies :func:`noise_profile`'s output by. It is *not* directly
+    comparable with the value returned by :func:`snr_student` or
+    :func:`snr_map`: those already carry the ``sqrt(1 + 1/n2)`` factor in their
+    denominator, so comparing them with this threshold applies the small-sample
+    penalty twice.
 
     Parameters
     ----------
@@ -189,15 +219,17 @@ def significance_threshold(
     Examples
     --------
     >>> round(significance_threshold(5.0, 60), 2)   # far out: nearly Gaussian
-    5.35
+    5.69
     >>> round(significance_threshold(5.0, 10), 2)   # 1.6 lambda/D: much harsher
-    12.34
+    23.54
     """
     n2 = len(_comparison_indices(int(n_apertures), exclude_adjacent))
     if n2 < 2:
         return np.inf
-    fpf = float(stats.norm.sf(sigma))
-    return float(stats.t.ppf(1.0 - fpf, n2 - 1) * np.sqrt(1.0 + 1.0 / n2))
+    return float(
+        _student_quantile(sigma, n_apertures, exclude_adjacent)
+        * np.sqrt(1.0 + 1.0 / n2)
+    )
 
 
 def snr_student(
@@ -334,10 +366,18 @@ def snr_map(
 ) -> NDArray[np.float64]:
     """Full small-sample SNR map.
 
-    Computed exactly — every pixel gets the Mawet et al. (2014) statistic with
-    the reference apertures at its own separation — but made affordable by
-    evaluating the aperture flux everywhere with a single convolution and then
-    sampling that map at the reference positions.
+    Every pixel gets the Mawet et al. (2014) statistic with the reference
+    apertures at its own separation, made affordable by evaluating the aperture
+    flux everywhere with a single convolution and then resampling that map at
+    the reference positions.
+
+    That resampling is the one approximation. It must interpolate, and an
+    interpolator that smooths removes variance from the reference sample, which
+    *underestimates* the noise and therefore *inflates* every SNR — the
+    dangerous direction. Bilinear interpolation of this map loses about 17 % of
+    its variance and inflates the map by 8 %; the cubic spline used here brings
+    that down to about 1 %. When a number matters, re-measure the candidate with
+    :func:`snr_student`, which computes the aperture fluxes exactly.
 
     Parameters
     ----------
@@ -381,6 +421,10 @@ def snr_map(
         )
 
     flux_map = _aperture_flux_map(arr, fwhm / 2.0)
+    # Pre-filtered once here rather than inside every radial bin: with
+    # `prefilter=False` below this is bit-for-bit the same as letting
+    # map_coordinates prefilter each call.
+    flux_spline = ndimage.spline_filter(flux_map, order=3, mode="constant")
     out = np.full(arr.shape, np.nan, dtype=np.float64)
 
     # Group pixels by integer radius: within a bin the aperture count is
@@ -411,7 +455,12 @@ def snr_map(
         samp_x = ctr[1] + rad[:, None] * np.cos(theta)
 
         ref = ndimage.map_coordinates(
-            flux_map, [samp_y.ravel(), samp_x.ravel()], order=1, mode="constant", cval=np.nan
+            flux_spline,
+            [samp_y.ravel(), samp_x.ravel()],
+            order=3,
+            mode="constant",
+            cval=np.nan,
+            prefilter=False,
         ).reshape(theta.shape)
 
         with np.errstate(invalid="ignore"):
@@ -658,8 +707,7 @@ def contrast_curve(
     """Throughput-corrected detection limit as a function of separation.
 
     .. math::
-        c(r) = \\frac{\\tau_\\sigma(r)\\, \\mathrm{noise}(r) + \\mathrm{bias}(r)}
-                    {T(r)\\, F_\\star}
+        c(r) = \\frac{\\tau_\\sigma(r)\\, \\mathrm{noise}(r)}{T(r)\\, F_\\star}
 
     with :math:`\\tau_\\sigma` the Student-t threshold from
     :func:`significance_threshold`, :math:`T` the measured throughput and
@@ -746,8 +794,18 @@ def contrast_curve(
     sigma_corr = thresholds / float(sigma)
 
     used = thresholds if student else np.full_like(thresholds, float(sigma))
-    contrast = (used * noise + bias) / (tput * star_flux)
-    contrast_gauss = (float(sigma) * noise + bias) / (tput * star_flux)
+    # The bias — the mean aperture flux of the residual annulus — is deliberately
+    # NOT added to the required flux. The detection statistic this curve is meant
+    # to predict (`snr_student`) is differential: it subtracts the mean of the
+    # reference apertures, which is exactly this bias. Adding it here would
+    # require the companion to carry it a second time, and since KLIP leaves a
+    # *negative* mean in the residual annulus (over-subtraction), that mistake
+    # lowers the quoted limit and makes the curve optimistic. Measured on the
+    # simulator before this was fixed: a companion injected at the quoted 5-sigma
+    # contrast came back at 4.2 sigma. It is still returned below, because it is
+    # a useful diagnostic of how hard the reduction over-subtracts.
+    contrast = used * noise / (tput * star_flux)
+    contrast_gauss = float(sigma) * noise / (tput * star_flux)
 
     with np.errstate(divide="ignore", invalid="ignore"):
         delta_mag = -2.5 * np.log10(contrast)

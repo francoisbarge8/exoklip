@@ -412,12 +412,20 @@ def simulate_adi_sequence(config: SimConfig | None = None, **overrides: Any) -> 
             Off-axis, non-coronagraphic PSF template normalised to unit flux in
             a FWHM-diameter aperture — the photometric reference.
         ``psf_raw``
-            The same PSF scaled to ``star_flux``, i.e. what an unsaturated
-            calibration exposure of the star would look like.
+            The same template scaled to ``star_flux``: what an unsaturated
+            calibration exposure of the star would look like, and the image you
+            would measure ``star_flux`` on with real data.
         ``fwhm``
             The FWHM actually realised, measured on the simulated PSF.
         ``star_flux``
-            FWHM-aperture flux of the unocculted star, in electrons.
+            FWHM-aperture flux of the unocculted star, in electrons. This is
+            exact: the frames are scaled so that the *aberrated* core really
+            carries this much flux, so ``contrast`` means what it says.
+        ``strehl``
+            Realised aperture flux divided by the diffraction-limited one. About
+            0.5 at the default ``static_phase_rms``. Reported because it is the
+            factor by which a simulator that normalised on the perfect PSF would
+            overstate every contrast.
         ``truth``
             List of dicts, one per injected companion, with ``radius``, ``pa``,
             ``contrast`` and ``flux``.
@@ -486,10 +494,8 @@ def simulate_adi_sequence(config: SimConfig | None = None, **overrides: Any) -> 
         psf_perfect, size=min(size, int(round(8 * cfg.fwhm)) | 1
         )
     )
-    # Scale factor turning arbitrary FFT units into electrons such that the
-    # unocculted star has `star_flux` inside a FWHM aperture.
     cy, cx = frame_center((size, size))
-    flux_scale = cfg.star_flux / _aperture_sum(psf_perfect, cy, cx, fwhm_measured / 2.0)
+    perfect_flux = _aperture_sum(psf_perfect, cy, cx, fwhm_measured / 2.0)
 
     logger.debug(
         "simulate: pupil D=%.1f grid px, requested fwhm=%.2f, measured fwhm=%.2f",
@@ -507,6 +513,7 @@ def simulate_adi_sequence(config: SimConfig | None = None, **overrides: Any) -> 
     )
 
     cube = np.empty((cfg.n_frames, size, size), dtype=np.float64)
+    unocculted = np.empty(cfg.n_frames, dtype=np.float64)
     for i in range(cfg.n_frames):
         phase = cfg.static_phase_rms * screen_static
         if cfg.static_drift:
@@ -515,9 +522,37 @@ def simulate_adi_sequence(config: SimConfig | None = None, **overrides: Any) -> 
             phase = phase + cfg.dynamic_phase_rms * make_phase_screen(
                 size, 1.0, seed=seeds[3 + i], r0_pix=diameter_pix / 4.0, mask=pupil_mask
             )
-        cube[i] = pupil_to_psf(
-            pupil, phase=phase, coronagraph_radius=cfg.coronagraph_radius
-        ) * flux_scale
+        # The photometric reference is the star as it *actually appears* through
+        # the aberrations, not the diffraction-limited ideal: an aberrated core
+        # loses a large fraction of its flux to the halo, and at the default
+        # static_phase_rms=0.8 that is a factor of about two. Normalising on the
+        # perfect PSF while injecting companions with a perfect template would
+        # make every contrast in the package optimistic by exactly that factor.
+        open_psf = pupil_to_psf(pupil, phase=phase, coronagraph_radius=0.0)
+        unocculted[i] = _aperture_sum(open_psf, cy, cx, fwhm_measured / 2.0)
+        cube[i] = (
+            open_psf
+            if cfg.coronagraph_radius <= 0
+            else pupil_to_psf(
+                pupil, phase=phase, coronagraph_radius=cfg.coronagraph_radius
+            )
+        )
+
+    # Scale so that the *realised* unocculted aperture flux equals star_flux.
+    # This is what an observer measures on a calibration exposure, and it makes
+    # the requested contrast exact by construction rather than by convention.
+    realised = float(np.median(unocculted))
+    if realised <= 0:
+        raise ValueError(
+            "the simulated stellar core carries no flux; static_phase_rms "
+            f"({cfg.static_phase_rms}) is probably far too large."
+        )
+    strehl = realised / perfect_flux
+    flux_scale = cfg.star_flux / realised
+    cube *= flux_scale
+    logger.debug(
+        "simulate: Strehl-like aperture ratio %.3f, flux scale %.4g", strehl, flux_scale
+    )
 
     # ---- Companions -------------------------------------------------------
     truth: list[dict[str, float]] = []
@@ -544,9 +579,10 @@ def simulate_adi_sequence(config: SimConfig | None = None, **overrides: Any) -> 
         "cube": cube,
         "angles": angles,
         "psf": psf_template,
-        "psf_raw": psf_perfect * flux_scale,
+        "psf_raw": psf_template * cfg.star_flux,
         "fwhm": float(fwhm_measured),
         "star_flux": float(cfg.star_flux),
+        "strehl": float(strehl),
         "truth": truth,
         "config": cfg,
     }

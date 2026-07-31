@@ -57,7 +57,7 @@ def main() -> int:
         n_planets=2,
         planet_separations=(20.0, 36.0),
         planet_pas=(60.0, 215.0),
-        planet_contrasts=(2e-3, 5e-4),
+        planet_contrasts=(5e-3, 1e-3),
         pa_start=-45.0,
         pa_end=45.0,
         seed=11,

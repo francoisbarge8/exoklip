@@ -46,7 +46,7 @@ from exoklip import SimConfig, simulate_adi_sequence, klip_adi, snr_map, detect_
 sim = simulate_adi_sequence(SimConfig(n_frames=60, size=141, n_planets=2,
                                       planet_separations=(20.0, 36.0),
                                       planet_pas=(60.0, 215.0),
-                                      planet_contrasts=(2e-3, 5e-4), seed=11))
+                                      planet_contrasts=(5e-3, 1e-3), seed=11))
 
 image = klip_adi(sim["cube"], sim["angles"], fwhm=sim["fwhm"], n_modes=20, delta_rot=0.5)
 snr = snr_map(image, sim["fwhm"], r_min=10, r_max=55)
@@ -56,13 +56,13 @@ for c in detect_sources(snr, sim["fwhm"], threshold=5.0, image=image):
 ```
 
 ```
-r = 35.94 px, PA = 215.01 deg, SNR = 16.16
-r = 19.63 px, PA = 60.53 deg, SNR = 8.66
+r = 35.88 px, PA = 215.13 deg, SNR = 12.03
+r = 19.64 px, PA = 59.75 deg, SNR = 8.73
 ```
 
 Both companions recovered from a sequence where a plain median shows nothing.
 The full chain — simulation, three reductions, detection, throughput, contrast
-curve, five figures — runs in about 45 seconds:
+curve, five figures — runs in about 80 seconds:
 
 ```bash
 python examples/demo_full.py
@@ -103,8 +103,8 @@ both are implemented here:
   between the two exposures. This is what protects close-in companions.
 - A **throughput correction**: measure what fraction of a known injected
   companion survives the *same* reduction, and divide. A contrast curve without
-  it is optimistic by a factor of 2–10 at small separation. Measured here: 0.43
-  at 8 pixels rising to 0.88 at 48.
+  it is optimistic by a factor of 2–10 at small separation. Measured here: 0.41
+  at 8 pixels rising to 0.93 at 48.
 
 **And the statistics.** At three resolution elements from the star there are
 only about 18 independent noise samples available; at 1.5, only 9. Estimating a
@@ -122,6 +122,20 @@ separation shrinks:
 Reporting the raw ratio as "sigma" close to the star is the most common way to
 publish a detection that is not there.
 
+**Is the curve actually calibrated?** It is worth checking rather than assuming,
+and the check is simple: take the contrast the curve quotes as its 5-sigma
+limit, inject a companion at exactly that contrast, and measure its
+significance. Across two independent noise realisations and three separations,
+that returns **4.5 to 4.9 sigma** — a residual optimism of about 6 %, which
+comes from the reference-aperture scatter being slightly larger once a companion
+is present. Two bugs were found this way and are fixed: the simulator used to
+normalise on the diffraction-limited PSF while the aberrated star had lost half
+its core flux (a factor 2.4), and the curve used to add the residual-annulus
+bias to the required flux, which the differential detection statistic already
+subtracts (a further 20 %, in the optimistic direction, because KLIP
+over-subtracts and that bias is negative).
+
+
 ---
 
 ## When is KLIP actually worth it?
@@ -131,10 +145,10 @@ quasi-static speckle field decorrelates over the sequence:
 
 | Speckle drift over the sequence | KLIP vs classical ADI |
 |---|---|
-| 0.05 (frozen optics) | **0.82×** — cADI wins |
-| 0.5 | 1.05× |
-| 1.0 | 1.58× |
-| 2.0 (strong drift) | **2.29×** |
+| 0.05 (frozen optics) | **0.79×** — cADI wins |
+| 0.5 | 1.03× |
+| 1.0 | 1.57× |
+| 2.0 (strong drift) | **2.28×** |
 
 On a perfectly frozen speckle field the temporal median is already an optimal
 PSF model, and KLIP — which fits a separate model per frame — only adds fitting
@@ -265,7 +279,7 @@ Honestly stated:
 pytest -q
 ```
 
-74 tests, about 25 seconds. They are numerical, not smoke tests: the KL basis is
+76 tests, about 45 seconds. They are numerical, not smoke tests: the KL basis is
 checked to be orthonormal to 1.1e-15, KLIP is compared against an independently
 written SVD implementation to 2e-15, injected companions must return at the
 requested position angle for all eight cardinal and diagonal angles, and the

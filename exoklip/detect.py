@@ -31,7 +31,13 @@ from scipy import ndimage, optimize
 
 from .core import dist_grid, frame_center
 from .inject import companion_position, remove_companion
-from .metrics import aperture_flux, significance_threshold, snr_map, snr_student
+from .metrics import (
+    _student_quantile,
+    aperture_flux,
+    significance_threshold,
+    snr_map,
+    snr_student,
+)
 from .psf import fit_gaussian_psf
 
 __all__ = ["detect_sources", "negfc_flux", "characterize"]
@@ -67,9 +73,13 @@ def detect_sources(
         Instrumental FWHM in pixels.
     threshold : float, default 5.0
         Minimum SNR. Note this is a *ratio*, and at small separation the ratio
-        needed for a genuine 5-sigma confidence is much larger — see
-        :func:`exoklip.metrics.significance_threshold`, whose value is reported
-        per candidate as ``threshold_5sigma``.
+        needed for a genuine 5-sigma confidence is much larger. That value is
+        reported per candidate as ``threshold_5sigma``, on the same scale as
+        ``snr`` so the two can be compared directly. (It is therefore the bare
+        Student-t quantile, not
+        :func:`exoklip.metrics.significance_threshold`, which is the
+        corresponding threshold for the raw aperture-flux ratio used by a
+        contrast curve and is larger by ``sqrt(1 + 1/n2)``.)
     center : sequence of float, optional
         Stellar centre.
     r_min, r_max : float, optional
@@ -157,6 +167,12 @@ def detect_sources(
 
         radius = float(np.hypot(y0 - ctr[0], x0 - ctr[1]))
         n_ap = max(int(2 * np.pi * radius / fwhm), 1)
+        # `snr` comes from an SNR map, i.e. it is already the t statistic of
+        # Mawet et al. (2014) eq. 9, divided by sqrt(1 + 1/n2). The threshold
+        # reported next to it must therefore be the bare Student-t quantile:
+        # `significance_threshold` carries that factor as well (it is the
+        # threshold for the raw aperture-flux ratio a contrast curve uses), and
+        # comparing the two would apply the small-sample penalty twice.
         found.append(
             {
                 "y": y0,
@@ -165,7 +181,7 @@ def detect_sources(
                 "pa": _position_angle(y0, x0, ctr),
                 "snr": snr_value,
                 "fwhm_fit": fwhm_fit,
-                "threshold_5sigma": significance_threshold(5.0, n_ap),
+                "threshold_5sigma": _student_quantile(5.0, n_ap),
                 "flux_aperture": (
                     aperture_flux(reduced, y0, x0, fwhm / 2.0)
                     if reduced is not None
@@ -327,9 +343,21 @@ def characterize(
     )
     logger.info("Detected %d candidate(s) above SNR %.1f.", len(candidates), threshold)
 
+    if not do_negfc and candidates:
+        logger.warning(
+            "characterize(do_negfc=False) cannot correct for self-subtraction. "
+            "The reported photometry is under the key 'contrast_uncorrected' and "
+            "is a lower limit: with aggressive KLIP settings it can be too faint "
+            "by a factor of two or more. Enable NEGFC, or divide by a throughput "
+            "measured with exoklip.metrics.throughput at the same settings."
+        )
+
     for cand in candidates:
-        contrast = cand["flux_aperture"] / star_flux if star_flux else np.nan
-        cand["contrast"] = float(contrast)
+        # Always reported, always honestly named: this is the aperture flux left
+        # in the reduced image, so it has already been eaten by self-subtraction.
+        cand["contrast_uncorrected"] = (
+            float(cand["flux_aperture"] / star_flux) if star_flux else np.nan
+        )
         if do_negfc:
             fit = negfc_flux(
                 arr, ang, psf, fwhm, cand["radius"], cand["pa"], reduction_fn,
@@ -338,7 +366,12 @@ def characterize(
             cand["negfc_radius"] = fit["radius"]
             cand["negfc_pa"] = fit["pa"]
             cand["negfc_flux"] = fit["flux"]
-            cand["contrast"] = float(fit["flux"] / star_flux) if star_flux else np.nan
-        with np.errstate(divide="ignore", invalid="ignore"):
-            cand["delta_mag"] = float(-2.5 * np.log10(cand["contrast"]))
+            # NEGFC subtracts the companion *before* the reduction, so its flux
+            # goes through exactly the same self-subtraction as the real one and
+            # needs no throughput correction. Only this deserves the plain name.
+            cand["contrast"] = (
+                float(fit["flux"] / star_flux) if star_flux else np.nan
+            )
+            with np.errstate(divide="ignore", invalid="ignore"):
+                cand["delta_mag"] = float(-2.5 * np.log10(cand["contrast"]))
     return candidates

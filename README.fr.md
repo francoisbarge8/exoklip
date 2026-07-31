@@ -48,7 +48,7 @@ from exoklip import SimConfig, simulate_adi_sequence, klip_adi, snr_map, detect_
 sim = simulate_adi_sequence(SimConfig(n_frames=60, size=141, n_planets=2,
                                       planet_separations=(20.0, 36.0),
                                       planet_pas=(60.0, 215.0),
-                                      planet_contrasts=(2e-3, 5e-4), seed=11))
+                                      planet_contrasts=(5e-3, 1e-3), seed=11))
 
 image = klip_adi(sim["cube"], sim["angles"], fwhm=sim["fwhm"], n_modes=20, delta_rot=0.5)
 snr = snr_map(image, sim["fwhm"], r_min=10, r_max=55)
@@ -58,13 +58,13 @@ for c in detect_sources(snr, sim["fwhm"], threshold=5.0, image=image):
 ```
 
 ```
-r = 35.94 px, PA = 215.01 deg, SNR = 16.16
-r = 19.63 px, PA = 60.53 deg, SNR = 8.66
+r = 35.88 px, PA = 215.13 deg, SNR = 12.03
+r = 19.64 px, PA = 59.75 deg, SNR = 8.73
 ```
 
 Les deux compagnons sont retrouvés dans une séquence où une simple médiane ne
 montre rien. La chaîne complète — simulation, trois réductions, détection,
-throughput, courbe de contraste, cinq figures — tourne en environ 45 secondes :
+throughput, courbe de contraste, cinq figures — tourne en environ 80 secondes :
 
 ```bash
 python examples/demo_full.py
@@ -108,7 +108,7 @@ conséquences, toutes deux implémentées ici :
 - Une **correction de throughput** : on mesure quelle fraction d'un compagnon
   injecté de flux connu survit à la *même* réduction, et on divise. Une courbe
   de contraste sans cette correction est optimiste d'un facteur 2 à 10 à faible
-  séparation. Mesuré ici : 0,43 à 8 pixels, remontant à 0,88 à 48.
+  séparation. Mesuré ici : 0,41 à 8 pixels, remontant à 0,93 à 48.
 
 **Et les statistiques.** À trois éléments de résolution de l'étoile, il n'y a
 qu'environ 18 échantillons de bruit indépendants disponibles ; à 1,5, seulement
@@ -126,6 +126,20 @@ une pénalité divergeant quand la séparation diminue :
 Annoncer le rapport brut comme un « sigma » près de l'étoile est la façon la
 plus courante de publier une détection qui n'existe pas.
 
+**La courbe est-elle réellement calibrée ?** Autant le vérifier plutôt que le
+supposer, et le test est simple : on prend le contraste que la courbe annonce
+comme limite 5σ, on injecte un compagnon exactement à ce contraste, et on mesure
+sa significativité. Sur deux réalisations de bruit indépendantes et trois
+séparations, on obtient **4,5 à 4,9σ** — un optimisme résiduel d'environ 6 %, dû
+à la dispersion des ouvertures de référence légèrement plus grande en présence
+d'un compagnon. Deux bugs ont été trouvés ainsi et corrigés : le simulateur
+normalisait sur la PSF limitée par la diffraction alors que l'étoile aberrée
+avait perdu la moitié du flux de son cœur (facteur 2,4), et la courbe ajoutait
+au flux requis le biais de l'anneau résiduel, que la statistique différentielle
+soustrait déjà (20 % de plus, dans le sens optimiste, puisque KLIP sur-soustrait
+et que ce biais est négatif).
+
+
 ---
 
 ## Quand KLIP vaut-il vraiment le coup ?
@@ -135,10 +149,10 @@ faisant varier la vitesse de décorrélation du champ de speckles quasi-statique
 
 | Dérive des speckles sur la séquence | KLIP vs ADI classique |
 |---|---|
-| 0,05 (optique figée) | **0,82×** — cADI gagne |
-| 0,5 | 1,05× |
-| 1,0 | 1,58× |
-| 2,0 (forte dérive) | **2,29×** |
+| 0,05 (optique figée) | **0,79×** — cADI gagne |
+| 0,5 | 1,03× |
+| 1,0 | 1,57× |
+| 2,0 (forte dérive) | **2,28×** |
 
 Sur un champ de speckles parfaitement figé, la médiane temporelle est déjà un
 modèle de PSF optimal, et KLIP — qui ajuste un modèle par pose — ne fait
@@ -276,7 +290,7 @@ Voir `examples/demo_real_data.py`.
 pytest -q
 ```
 
-74 tests, environ 25 secondes. Ce sont des tests numériques, pas des smoke tests :
+76 tests, environ 45 secondes. Ce sont des tests numériques, pas des smoke tests :
 la base KL est vérifiée orthonormée à 1,1e-15, KLIP est comparé à une
 implémentation SVD écrite indépendamment à 2e-15, les compagnons injectés
 doivent revenir à l'angle de position demandé pour les huit angles cardinaux et

@@ -195,16 +195,22 @@ def test_pixel_noise_underestimates_point_source_noise():
 def test_klip_recovers_companions_that_the_raw_data_hides():
     """The end-to-end claim of the package.
 
-    Two companions at 2e-3 and 5e-4 contrast, buried in a drifting speckle
+    Two companions at 5e-3 and 1e-3 contrast, buried in a drifting speckle
     field. Neither is visible in a plain median of the sequence. After an
     annular KLIP reduction both must exceed a signal-to-noise ratio of 8, no
     other position may exceed 5, and KLIP must beat classical ADI on both.
+
+    Those contrasts are relative to the *realised* stellar aperture flux, which
+    is what ``SimConfig.star_flux`` now means. They were 2e-3 and 5e-4 while the
+    simulator normalised on the diffraction-limited PSF — the same photons,
+    labelled about 2.4 times too optimistically because the aberrated star had
+    lost that much of its core flux to the halo.
     """
     sim = simulate_adi_sequence(
         SimConfig(
             n_frames=60, size=141, fwhm=4.0, n_planets=2,
             planet_separations=(20.0, 36.0), planet_pas=(60.0, 215.0),
-            planet_contrasts=(2e-3, 5e-4), pa_start=-45.0, pa_end=45.0, seed=11,
+            planet_contrasts=(5e-3, 1e-3), pa_start=-45.0, pa_end=45.0, seed=11,
         )
     )
     cube, angles, fwhm = sim["cube"], sim["angles"], sim["fwhm"]
@@ -259,3 +265,73 @@ def test_throughput_is_below_one_and_falls_at_small_separation():
         "throughput must degrade towards the star, where the companion moves "
         "least between frames and is most absorbed by its own PSF model"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Regression: the two calibration defects found by adversarial review
+# --------------------------------------------------------------------------- #
+def test_snr_map_agrees_with_the_exact_statistic():
+    """The map must not be wider than snr_student on pure noise.
+
+    ``snr_map`` resamples a convolved aperture-flux map at the reference
+    positions. A smoothing interpolator removes variance from the reference
+    sample, under-estimates the noise and therefore inflates every SNR — the
+    dangerous direction. With bilinear resampling the map was 8 % too wide,
+    which multiplies the tail false-alarm probability at 5 by about 2.5.
+    """
+    rng = np.random.default_rng(4)
+    from_map, exact = [], []
+    for _ in range(12):
+        frame = rng.normal(size=(121, 121))
+        smap = metrics.snr_map(frame, 4.0, r_min=10.0, r_max=45.0)
+        ys, xs = np.nonzero(np.isfinite(smap))
+        for i in rng.choice(ys.size, size=40, replace=False):
+            value = metrics.snr_student(frame, float(ys[i]), float(xs[i]), 4.0)
+            if np.isfinite(value):
+                from_map.append(smap[ys[i], xs[i]])
+                exact.append(value)
+    from_map = np.asarray(from_map)
+    exact = np.asarray(exact)
+
+    ratio = from_map.std() / exact.std()
+    assert 0.95 < ratio < 1.05, (
+        f"snr_map is {100 * (ratio - 1):+.1f} % wider than snr_student on pure "
+        "noise; the resampling of the aperture-flux map is biasing the noise "
+        "estimate"
+    )
+    assert np.sqrt(np.mean((from_map - exact) ** 2)) < 0.15
+
+
+def test_detection_threshold_is_on_the_same_scale_as_the_reported_snr():
+    """``threshold_5sigma`` must be comparable with ``snr``, not to the raw ratio.
+
+    ``snr_student``/``snr_map`` already divide by ``sqrt(1 + 1/n2)``, so their
+    output is Student-t distributed and the threshold beside them must be the
+    bare quantile. ``significance_threshold`` carries the extra factor because
+    it applies to the raw aperture-flux ratio used by a contrast curve; using
+    it here charged the small-sample penalty twice.
+    """
+    from scipy import stats
+
+    from exoklip.core import n_resolution_elements
+    from exoklip.detect import detect_sources
+    from exoklip.metrics import _student_quantile, significance_threshold
+
+    for n in (10, 20, 60):
+        n2 = len(metrics._comparison_indices(n, True))
+        expected = stats.t.ppf(1.0 - stats.norm.sf(5.0), n2 - 1)
+        assert _student_quantile(5.0, n) == pytest.approx(expected, rel=1e-12)
+        assert significance_threshold(5.0, n) == pytest.approx(
+            expected * np.sqrt(1.0 + 1.0 / n2), rel=1e-12
+        )
+
+    # ... and the value detect_sources reports is the former, not the latter.
+    frame = np.zeros((121, 121))
+    yy, xx = np.indices(frame.shape)
+    y0, x0 = companion_position(30.0, 45.0, frame_center(frame.shape))
+    frame += 9.0 * np.exp(-0.5 * ((yy - y0) ** 2 + (xx - x0) ** 2) / 2.0**2)
+    found = detect_sources(frame, 4.0, threshold=5.0)
+    assert found, "the synthetic source must be detected"
+    n = n_resolution_elements(found[0]["radius"], 4.0)
+    assert found[0]["threshold_5sigma"] == pytest.approx(_student_quantile(5.0, n))
+    assert found[0]["threshold_5sigma"] < significance_threshold(5.0, n)
