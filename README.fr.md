@@ -4,28 +4,25 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Imagerie directe d'exoplanètes : **post-traitement KLIP/ADI, statistiques de
-détection honnêtes, et un simulateur en optique de Fourier** pour tout tester
-sans télescope.
+Post-traitement KLIP/ADI pour l'imagerie directe d'exoplanètes, avec les
+statistiques de détection et un simulateur en optique de Fourier qui vont avec.
 
-Détecter une planète à côté de son étoile, c'est extraire une source dix mille à
-un million de fois plus faible, à une fraction de seconde d'arc. La planète
-n'est pas cachée par l'obscurité mais par les **speckles** — de la lumière
-stellaire diffractée qui imite des sources ponctuelles et ne s'efface pas par
-intégration. Ce package implémente la machinerie standard pour les supprimer et,
-tout aussi important, pour énoncer honnêtement ce qui a été détecté ou non.
+J'ai commencé ce projet après avoir écrit un petit script qui faisait une PCA sur
+les patchs d'une seule image de télescope, en appelant ça du KLIP. Ça ne
+marchait pas, et comprendre *pourquoi* ça ne pouvait pas marcher est devenu ce
+package. En résumé : avec une seule pose, rien ne distingue une planète d'un
+speckle. Il faut une séquence.
 
-Dépendances dures : **numpy et scipy uniquement**. astropy, matplotlib et tqdm
-sont optionnels et importés paresseusement.
+Seuls numpy et scipy sont nécessaires. astropy, matplotlib et tqdm sont
+optionnels.
 
-📖 [English README](README.md)
+📖 [README in English](README.md)
 
 ![Quatre réductions de la même séquence simulée](examples/output/reductions.png)
 
-*La même séquence simulée de 60 poses, réduite de quatre façons. Les cercles
-verts marquent les deux compagnons injectés. Regardez les échelles de couleur :
-de ±25 000 pour la médiane brute à ±650 après KLIP annulaire — deux ordres de
-grandeur de lumière stellaire supprimés.*
+*Une séquence simulée de 60 poses, réduite de quatre façons. Les cercles verts
+marquent les deux compagnons injectés. Regardez les échelles de couleur : ±25 000
+pour la médiane brute, ±650 après KLIP annulaire.*
 
 ---
 
@@ -37,8 +34,8 @@ cd exoklip
 pip install -e ".[plot]"
 ```
 
-`pip install -e .` seul donne accès à tous les algorithmes ; l'extra `plot`
-n'ajoute que les figures, et `fits` ajoute astropy pour lire des données réelles.
+`pip install -e .` seul donne accès à tous les algorithmes. L'extra `plot` ajoute
+les figures, `fits` ajoute astropy pour les données réelles.
 
 ## Démarrage rapide
 
@@ -62,9 +59,8 @@ r = 35.88 px, PA = 215.13 deg, SNR = 12.03
 r = 19.64 px, PA = 59.75 deg, SNR = 8.73
 ```
 
-Les deux compagnons sont retrouvés dans une séquence où une simple médiane ne
-montre rien. La chaîne complète — simulation, trois réductions, détection,
-throughput, courbe de contraste, cinq figures — tourne en environ 80 secondes :
+Les deux compagnons ressortent d'une séquence où une simple médiane ne montre
+rien. La chaîne complète, figures comprises, prend environ 80 secondes :
 
 ```bash
 python examples/demo_full.py
@@ -72,50 +68,48 @@ python examples/demo_full.py
 
 ---
 
-## La physique en trente lignes
+## La physique qu'il a fallu comprendre
 
-**Le problème.** Un Jupiter jeune est 10⁻⁴ à 10⁻⁶ fois moins brillant que son
-étoile, à 0,1–1 seconde d'arc. Un coronographe supprime le cœur stellaire, mais
-les erreurs de front d'onde résiduelles du télescope diffusent la lumière en un
-halo de **speckles** — des artefacts de diffraction cohérents, chacun ayant
-exactement la forme d'une source ponctuelle. Ce n'est pas du bruit aléatoire :
-ils persistent des minutes à des heures, donc poser plus longtemps ne les
-élimine pas. Ce sont eux qui limitent tout.
+**Pourquoi c'est difficile.** Un Jupiter jeune est 10⁻⁴ à 10⁻⁶ fois moins
+brillant que son étoile, à 0,1–1 seconde d'arc. Un coronographe tue le cœur
+stellaire, mais les erreurs de front d'onde résiduelles diffusent la lumière en
+un halo de **speckles**. Chaque speckle a exactement la forme d'une source
+ponctuelle, et ils durent des minutes à des heures. Ils ne se moyennent donc pas,
+et poser plus longtemps ne sert à rien. Ce sont eux, le problème.
 
-**L'astuce : l'imagerie différentielle angulaire** (Marois et al. 2006). On
-observe en mode *pupil-tracking* : on laisse le champ tourner avec le ciel au
-lieu de compenser. Les speckles viennent de l'optique, ils restent donc figés
-sur le détecteur. Le compagnon est sur le ciel, il décrit donc un arc. Les deux
-deviennent séparables — on construit un modèle de l'étoile à partir de la
-séquence elle-même, on le soustrait, on dérote chaque résidu vers une
-orientation commune, et on combine. Le compagnon s'additionne, pas les speckles.
+**L'imagerie différentielle angulaire** (Marois et al. 2006). On observe en mode
+*pupil-tracking* : on laisse le champ tourner avec le ciel au lieu de compenser.
+Les speckles viennent de l'optique, ils restent donc figés sur le détecteur. Le
+compagnon est sur le ciel, il décrit donc un arc. Toute l'astuce est là. On
+construit un modèle de l'étoile à partir de la séquence elle-même, on le
+soustrait, on dérote chaque résidu vers une orientation commune, on combine. Le
+compagnon s'additionne. Les speckles non.
 
-**KLIP** (Soummer, Pueyo & Larkin 2012) choisit ce modèle de façon optimale.
-Pour chaque pose, on construit une base de Karhunen–Loève à partir des vecteurs
+**KLIP** (Soummer, Pueyo & Larkin 2012) choisit ce modèle de façon optimale. Pour
+chaque pose, on construit une base de Karhunen–Loève à partir des vecteurs
 propres de la covariance des *autres* poses, et on projette sur les `K` premiers
-modes. La troncature à `K` est tout l'enjeu : les premiers modes capturent la
-PSF stellaire commune à toutes les poses, les suivants commencent à décrire le
-bruit propre de chaque pose.
+modes. La troncature à `K` est tout l'enjeu : les premiers modes capturent la PSF
+stellaire commune, les suivants commencent à ajuster le bruit propre de la pose.
 
-**Le piège : l'auto-soustraction.** Le compagnon est présent dans les poses qui
-servent à bâtir le modèle, donc une partie est soustraite avec l'étoile. Plus de
-modes, c'est un meilleur modèle stellaire *et* moins de compagnon restant. Deux
+**Le piège, c'est l'auto-soustraction.** Le compagnon est présent dans les poses
+qui servent à bâtir le modèle, donc une partie part avec l'étoile. Plus de modes,
+c'est un meilleur modèle stellaire *et* moins de compagnon restant. Deux
 conséquences, toutes deux implémentées ici :
 
 - Un **seuil de rotation** (`delta_rot`) : une pose n'entre dans la bibliothèque
-  de références que si le compagnon s'est déplacé d'une fraction donnée de FWHM
-  entre les deux expositions. C'est ce qui protège les compagnons serrés.
-- Une **correction de throughput** : on mesure quelle fraction d'un compagnon
-  injecté de flux connu survit à la *même* réduction, et on divise. Une courbe
-  de contraste sans cette correction est optimiste d'un facteur 2 à 10 à faible
-  séparation. Mesuré ici : 0,41 à 8 pixels, remontant à 0,93 à 48.
+  de références que si le compagnon s'est déplacé d'une fraction donnée de FWHM.
+  C'est ce qui protège les compagnons serrés.
+- Une **correction de throughput** : on injecte un compagnon de flux connu, on
+  refait la *même* réduction, on regarde ce qui survit, on divise. Sans ça, une
+  courbe de contraste est optimiste d'un facteur 2 à 10 à faible séparation. Je
+  mesure 0,41 à 8 pixels, remontant à 0,93 à 48.
 
-**Et les statistiques.** À trois éléments de résolution de l'étoile, il n'y a
-qu'environ 18 échantillons de bruit indépendants disponibles ; à 1,5, seulement
-9. Estimer un niveau de bruit sur 9 échantillons puis seuiller à « 5σ » comme
-s'il était connu exactement surestime la significativité. Le traitement correct
-est un test *t* de Student à deux échantillons (Mawet et al. 2014), qui coûte
-une pénalité divergeant quand la séparation diminue :
+**Et les statistiques m'ont piégé.** À trois éléments de résolution de l'étoile,
+on ne dispose que d'environ 18 échantillons de bruit indépendants. À 1,5, neuf.
+Estimer un bruit sur neuf échantillons puis seuiller à « 5σ » comme si on le
+connaissait exactement surestime la significativité. Le bon traitement est un
+test *t* de Student à deux échantillons (Mawet et al. 2014), et la pénalité
+explose quand on se rapproche :
 
 | Éléments de résolution | Rapport requis pour un vrai 5σ |
 |---|---|
@@ -123,29 +117,29 @@ une pénalité divergeant quand la séparation diminue :
 | 20 | **8,2** |
 | 10 (≈1,6 λ/D) | **23,5** |
 
-Annoncer le rapport brut comme un « sigma » près de l'étoile est la façon la
-plus courante de publier une détection qui n'existe pas.
+Annoncer le rapport brut comme un « sigma » près de l'étoile, c'est comme ça
+qu'on publie une détection qui n'existe pas.
 
-**La courbe est-elle réellement calibrée ?** Autant le vérifier plutôt que le
-supposer, et le test est simple : on prend le contraste que la courbe annonce
-comme limite 5σ, on injecte un compagnon exactement à ce contraste, et on mesure
-sa significativité. Sur deux réalisations de bruit indépendantes et trois
-séparations, on obtient **4,5 à 4,9σ** — un optimisme résiduel d'environ 6 %, dû
-à la dispersion des ouvertures de référence légèrement plus grande en présence
-d'un compagnon. Deux bugs ont été trouvés ainsi et corrigés : le simulateur
-normalisait sur la PSF limitée par la diffraction alors que l'étoile aberrée
-avait perdu la moitié du flux de son cœur (facteur 2,4), et la courbe ajoutait
-au flux requis le biais de l'anneau résiduel, que la statistique différentielle
-soustrait déjà (20 % de plus, dans le sens optimiste, puisque KLIP sur-soustrait
-et que ce biais est négatif).
+**Ma courbe de contraste est-elle vraiment calibrée ?** J'ai préféré vérifier
+plutôt que supposer. On prend le contraste que la courbe annonce comme limite 5σ,
+on injecte un compagnon exactement à ce contraste, on mesure ce qui revient. Sur
+deux réalisations de bruit et trois séparations, j'obtiens **4,5 à 4,9σ**, soit
+environ 6 % d'optimisme, qui vient de la dispersion un peu plus grande des
+ouvertures de référence en présence d'un compagnon.
 
+Ce test a révélé deux bugs. Mon simulateur normalisait sur la PSF limitée par la
+diffraction alors que l'étoile aberrée avait perdu la moitié du flux de son cœur
+dans le halo : facteur 2,4. Et ma courbe ajoutait le biais de l'anneau résiduel
+au flux que doit porter un compagnon, alors que la statistique de détection le
+soustrait déjà. Ce second bug coûtait 20 % de plus, dans le sens optimiste,
+puisque KLIP sur-soustrait et que ce biais est négatif. Les deux sont corrigés.
 
 ---
 
 ## Quand KLIP vaut-il vraiment le coup ?
 
-Un résultat obtenu en construisant ce package, mesuré sur le simulateur en
-faisant varier la vitesse de décorrélation du champ de speckles quasi-statique :
+Ça m'a surpris. J'ai fait varier la vitesse de décorrélation du champ de speckles
+quasi-statique sur une séquence, et comparé à l'ADI classique :
 
 | Dérive des speckles sur la séquence | KLIP vs ADI classique |
 |---|---|
@@ -155,47 +149,46 @@ faisant varier la vitesse de décorrélation du champ de speckles quasi-statique
 | 2,0 (forte dérive) | **2,28×** |
 
 Sur un champ de speckles parfaitement figé, la médiane temporelle est déjà un
-modèle de PSF optimal, et KLIP — qui ajuste un modèle par pose — ne fait
-qu'ajouter du bruit d'ajustement. KLIP paie précisément parce que l'optique
-réelle dérive : température, flexions et boucle d'optique adaptative déplacent
-toutes les aberrations pendant les heures nécessaires à accumuler de la rotation
-de champ. Son bruit résiduel est resté quasi constant sur toute cette plage
-pendant que celui de cADI se dégradait d'un facteur trois.
+modèle de PSF optimal, et KLIP ne fait qu'ajouter du bruit d'ajustement par
+dessus. KLIP paie *parce que* l'optique réelle dérive : température, flexions et
+boucle d'optique adaptative déplacent les aberrations pendant les heures
+nécessaires à accumuler de la rotation de champ. Le bruit résiduel de KLIP est
+resté à peu près plat sur toute la plage, celui de cADI a triplé.
 
-C'est pourquoi le `static_drift` par défaut du simulateur vaut 0,8 et non une
-valeur qui flatterait l'algorithme.
+C'est pour ça que le simulateur utilise `static_drift = 0,8` par défaut. Une
+valeur plus faible fait paraître l'algorithme meilleur qu'il n'est.
 
 ---
 
-## Ce qui n'allait pas dans le prototype d'origine
+## Ce qui n'allait pas dans ma première tentative
 
-Ce package est né d'un script de 97 lignes (`b.py`) qui faisait une PCA
-scikit-learn sur des patchs spatiaux recouvrants d'un unique JPEG en appelant ça
-du KLIP. Chaque défaut ci-dessous était réel, et chaque ligne nomme son
-remplaçant.
+Le point de départ était un script de 97 lignes (`b.py`) qui faisait une PCA
+scikit-learn sur des patchs recouvrants d'un seul JPEG. Chaque problème ci-dessous
+était réel.
 
-| Problème | Conséquence scientifique | Remplacé par |
+| Problème | Pourquoi ça compte | Ce qui le remplace |
 |---|---|---|
-| **Une PCA sur les patchs d'une seule image n'est pas du KLIP.** Avec une seule pose, il n'y a ni bibliothèque de références ni rotation de champ : rien ne distingue une planète d'un speckle — les deux sont compacts, brillants et localement atypiques. | Fondamental : la méthode ne peut pas faire ce qu'elle prétend, et sa sortie est une carte du halo de speckles. | `klip.py` + `adi.py` : une vraie bibliothèque de références sur une séquence en rotation |
-| La boucle d'itérations réajuste la PCA sur des données inchangées | Les 10 « itérations » identiques ; la boucle était décorative | `legacy/b_fixed.py` — exclut itérativement les patchs signalés pour que le modèle converge |
-| `skimage.measure.label` appliqué à un tableau RGB de flottants | Chaque valeur flottante distincte devient sa propre région ; la liste de détections est du bruit | `detect.py` seuille d'abord vers un masque **binaire**, puis étiquette |
-| Patchs recouvrants écrits avec `=` | Les derniers patchs écrasent les précédents ; l'essentiel du calcul est jeté | Accumulation du résidu divisée par une carte de recouvrement |
-| Seuil au 95ᵉ percentile de l'erreur | Signale toujours exactement 5 % de l'image, planète ou pas — il ne peut pas répondre « rien trouvé » | `metrics.significance_threshold` : Student-*t* à taux de faux positifs déclaré |
-| `inverse_transform` par patch dans une boucle Python sur ~259 000 patchs | Des minutes pour une opération vectorisable | Entièrement vectorisé |
-| Trois canaux couleur pour un détecteur infrarouge monochrome | 3× le coût pour des données redondantes | Réduit à un seul plan |
-| `resize(image, (512, 512))` | Détruit l'échantillonnage de la PSF dont dépend toute l'analyse | Recadrer, jamais redimensionner |
-| Lecture d'un JPEG 8 bits de prévisualisation de l'archive Keck | 256 niveaux ne peuvent pas contenir un signal à 10⁻⁵ de contraste ; la planète est quantifiée avant tout algorithme | `io.load_fits` + un avertissement explicite dans `io.load_image_legacy` |
+| **Une PCA sur les patchs d'une image n'est pas du KLIP.** Une seule pose, donc pas de bibliothèque de références ni de rotation de champ : rien ne distingue une planète d'un speckle. Les deux sont compacts, brillants et localement inhabituels. | Fondamental. La sortie est une image du halo de speckles, ce que j'ai effectivement obtenu. | `klip.py` + `adi.py`, sur une séquence en rotation |
+| La boucle d'itérations réajustait la PCA sur des données inchangées | Les 10 « itérations » étaient identiques. La boucle ne faisait rien. | `legacy/b_fixed.py` exclut les patchs signalés à chaque passe, le modèle converge |
+| `skimage.measure.label` sur un tableau RGB de flottants | Chaque valeur flottante distincte devenait sa propre région. La liste de détections était du bruit. | `detect.py` seuille d'abord vers un masque **binaire** |
+| Patchs recouvrants écrits avec `=` | Les derniers écrasaient les premiers : l'essentiel du calcul partait à la poubelle | On accumule, puis on divise par une carte de recouvrement |
+| Seuil au 95ᵉ percentile | Signale toujours exactement 5 % de l'image, planète ou pas. Il ne peut jamais dire « rien ici ». | `metrics.significance_threshold`, Student-*t* à taux de faux positifs déclaré |
+| `inverse_transform` par patch, ~259 000 patchs | Des minutes, pour quelque chose de vectorisable | Entièrement vectorisé |
+| Trois canaux couleur pour un détecteur infrarouge monochrome | 3× le travail pour des données identiques | Réduit à un seul plan |
+| `resize(image, (512, 512))` | Détruit l'échantillonnage de la PSF sur lequel repose toute l'analyse | Recadrer, jamais redimensionner |
+| Un JPEG 8 bits de prévisualisation de l'archive Keck | 256 niveaux ne peuvent pas contenir un signal à 10⁻⁵. La planète est quantifiée avant tout algorithme. | `io.load_fits`, plus un avertissement explicite dans `io.load_image_legacy` |
 
-`legacy/b_fixed.py` conserve l'idée d'origine (analyse d'une image unique) et
-corrige les huit bugs d'implémentation, avec un encadré expliquant ce qu'une
-telle méthode peut et ne peut pas faire légitimement. La détection d'anomalies
-par patchs sur une seule pose est un outil raisonnable — pour trouver des rayons
-cosmiques, des défauts de détecteur ou des structures étendues. Ce n'est pas de
-la détection de planètes.
+`legacy/b_fixed.py` garde l'idée d'origine (une seule image) avec les huit bugs
+d'implémentation corrigés. Sa démo fait la démonstration en deux temps : elle
+trouve trois pixels chauds et un rayon cosmique sur une image propre, et rapporte
+zéro détection quand il n'y a rien ; puis elle échoue complètement à trouver un
+compagnon 300× plus brillant qu'une cible réelle. La détection d'anomalies par
+patchs sur une seule pose est un bon outil pour les défauts de détecteur. Ce
+n'est pas de la détection de planètes.
 
 ---
 
-## Tour de l'API
+## API
 
 | Module | Contenu |
 |---|---|
@@ -215,19 +208,19 @@ la détection de planètes.
 ### Conventions
 
 - Images `(y, x)`, cubes `(n_poses, y, x)`, float64 en interne.
-- Angles en **degrés** partout dans l'API publique.
-- Angle de position : **0 = Nord = `+y`, croissant vers l'Est = `-x`.**
-- `cube_derotate` tourne la pose *i* de `-angles[i]` (convention VIP/pyKLIP).
+- Angles en **degrés** dans toute l'API publique.
+- Angle de position : **0 = Nord = `+y`, croissant vers l'Est = `-x`**.
+- `cube_derotate` tourne la pose *i* de `-angles[i]`, comme VIP et pyKLIP.
 - **Le contraste est un rapport de flux dans une ouverture de diamètre FWHM.**
-  `normalize_psf` garantit que le template porte exactement 1,0 dans une telle
-  ouverture, ce qui rend chaque argument `flux` directement interprétable.
+  `normalize_psf` force le template à porter exactement 1,0 dans cette ouverture,
+  ce qui donne un sens à chaque argument `flux`.
 
 ---
 
 ## Utiliser des données réelles
 
 Récupérez les **FITS** depuis la [Keck Observatory Archive](https://koa.ipac.caltech.edu/),
-pas les JPEG de prévisualisation — ils sont en 8 bits et ne peuvent pas contenir
+pas les JPEG de prévisualisation : ils sont en 8 bits et ne peuvent pas contenir
 le signal.
 
 ```python
@@ -243,46 +236,46 @@ psf, star_flux, fwhm = normalize_psf(pose_de_calibration_non_saturee)
 image = klip_adi(cube, angles, fwhm=fwhm, n_modes=20, delta_rot=1.0)
 ```
 
-Deux pièges classiques : `star_flux` doit être corrigé du rapport de temps de
-pose et de toute densité neutre entre l'image de calibration et les poses
-scientifiques, sinon tous les contrastes sont décalés d'un facteur constant ; et
-les angles parallactiques doivent être *déroulés* à travers la discontinuité
-180°/−180°, ce que fait `parallactic_angles_from_headers`.
+Deux pièges classiques. `star_flux` doit être corrigé du rapport de temps de pose
+et de toute densité neutre entre l'image de calibration et les poses
+scientifiques, sinon tous les contrastes sont décalés d'un facteur constant. Et
+les angles parallactiques doivent être déroulés à travers la discontinuité
+180°/−180°, ce dont `parallactic_angles_from_headers` se charge.
 
 Voir `examples/demo_real_data.py`.
 
 ## Lire les résultats
 
-- **La carte de SNR, pas l'image réduite.** Le bruit d'une image réduite varie
-  de plusieurs ordres de grandeur avec la séparation : un seuil unique dessus
-  n'a aucun sens.
-- **Un rapport n'est pas un sigma.** `detect_sources` renvoie
-  `threshold_5sigma` à côté de `snr` exactement pour ça. Comparez-les.
-- **Une courbe de contraste décrit une réduction précise**, y compris ses
-  `n_modes` et `delta_rot`. La citer sans ces valeurs, ou sans correction de
+- **La carte de SNR, pas l'image réduite.** Le bruit d'une image réduite varie de
+  plusieurs ordres de grandeur avec la séparation : un seuil unique dessus ne
+  veut rien dire.
+- **Un rapport n'est pas un sigma.** `detect_sources` renvoie `threshold_5sigma`
+  à côté de `snr` pour cette raison. Comparez-les.
+- **Une courbe de contraste décrit une réduction précise**, `n_modes` et
+  `delta_rot` compris. La citer sans ces valeurs, ou sans correction de
   throughput, ne dit pas grand-chose.
 - **Les résidus sont signés.** La sur-soustraction apparaît en lobes négatifs de
-  part et d'autre d'une source ; c'est pourquoi les figures utilisent une
-  palette divergente centrée sur zéro.
+  part et d'autre d'une source ; d'où la palette divergente centrée sur zéro.
 
 ## Limites
 
-Énoncées honnêtement :
-
 - Pas d'imagerie différentielle spectrale, pas de RDI (étoile de référence).
-- Pas de cartes de détection à modèle direct (ANDROMEDA, PACO, KLIP-FM). Le
-  biais astrométrique et photométrique est traité par NEGFC, standard mais plus
-  lent et sans budget d'erreur analytique.
+- Pas de cartes de détection à modèle direct (ANDROMEDA, PACO, KLIP-FM). Le biais
+  astrométrique et photométrique passe par NEGFC, standard mais plus lent et sans
+  budget d'erreur analytique.
 - Le simulateur relève de l'optique de Fourier avec une décomposition de phase
-  prescrite, pas d'une simulation d'optique adaptative bout en bout : ni boucle
+  prescrite, pas d'une simulation d'optique adaptative bout en bout. Ni boucle
   temporelle réelle, ni scintillation, ni effets chromatiques, ni cosmétique de
   détecteur réaliste.
 - `negfc_flux` lance une réduction complète par évaluation de la fonction :
   comptez quelques centaines de réductions par compagnon.
-- Non validé contre une réduction publiée de données réelles. Toutes les
-  affirmations de justesse reposent sur des tests unitaires, des vérifications
-  analytiques et des comparaisons avec des implémentations indépendantes — c'est
-  une preuve plus faible que reproduire un résultat connu sur le ciel.
+- **Non validé contre une réduction publiée de données réelles.** Tout ce qui est
+  ici repose sur des tests unitaires, des vérifications analytiques et des
+  comparaisons avec des implémentations écrites indépendamment. C'est plus faible
+  que reproduire un résultat connu sur le ciel, et je tiens à le dire clairement.
+- Tout est cohérent en interne, mais je n'ai pas de jeu de données réel avec une
+  orientation d'instrument connue : une inversion de signe *globale* me resterait
+  invisible.
 
 ## Tests
 
@@ -290,12 +283,13 @@ Voir `examples/demo_real_data.py`.
 pytest -q
 ```
 
-76 tests, environ 45 secondes. Ce sont des tests numériques, pas des smoke tests :
-la base KL est vérifiée orthonormée à 1,1e-15, KLIP est comparé à une
-implémentation SVD écrite indépendamment à 2e-15, les compagnons injectés
+81 tests, environ 45 secondes. Ce sont des tests numériques, pas des smoke tests.
+La base KL est vérifiée orthonormée à 1,1e-15 ; KLIP est comparé à une
+implémentation SVD écrite indépendamment à 2e-15 ; les compagnons injectés
 doivent revenir à l'angle de position demandé pour les huit angles cardinaux et
-diagonaux, et la statistique de SNR est vérifiée normale centrée réduite sur du
-bruit pur par Monte-Carlo.
+diagonaux ; la statistique de SNR est vérifiée normale centrée réduite sur du
+bruit pur par Monte-Carlo ; et `klip_annular` doit partitionner le champ
+exactement, sans trou ni recouvrement entre anneaux.
 
 ## Références
 
@@ -313,9 +307,9 @@ bruit pur par Monte-Carlo.
 
 Pour de la science en production, utilisez [VIP](https://github.com/vortex-exoplanet/VIP)
 ou [pyKLIP](https://github.com/bpiehl/pyklip) : ils sont validés sur données
-réelles et supportent bien plus d'instruments. Ce package est fait pour être
-*lu* — chaque formule est traçable jusqu'à son article, et rien n'est caché
-derrière un wrapper.
+réelles et supportent bien plus d'instruments. J'ai écrit celui-ci pour qu'il se
+lise : chaque formule remonte à son article, et rien ne se cache derrière un
+wrapper.
 
 ## Licence
 
