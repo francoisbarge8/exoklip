@@ -1,6 +1,6 @@
 # exoklip
 
-[![CI](https://github.com/francoisb12/exoklip/actions/workflows/ci.yml/badge.svg)](https://github.com/francoisb12/exoklip/actions/workflows/ci.yml)
+[![CI](https://github.com/francoisbarge8/exoklip/actions/workflows/ci.yml/badge.svg)](https://github.com/francoisbarge8/exoklip/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -29,7 +29,7 @@ pour la médiane brute, ±650 après KLIP annulaire.*
 ## Installation
 
 ```bash
-git clone https://github.com/francoisb12/exoklip.git
+git clone https://github.com/francoisbarge8/exoklip.git
 cd exoklip
 pip install -e ".[plot]"
 ```
@@ -71,7 +71,7 @@ python examples/demo_full.py
 ## La physique qu'il a fallu comprendre
 
 **Pourquoi c'est difficile.** Un Jupiter jeune est 10⁻⁴ à 10⁻⁶ fois moins
-brillant que son étoile, à 0,1–1 seconde d'arc. Un coronographe tue le cœur
+brillant que son étoile, à 0,1 à 1 seconde d'arc. Un coronographe tue le cœur
 stellaire, mais les erreurs de front d'onde résiduelles diffusent la lumière en
 un halo de **speckles**. Chaque speckle a exactement la forme d'une source
 ponctuelle, et ils durent des minutes à des heures. Ils ne se moyennent donc pas,
@@ -86,7 +86,7 @@ soustrait, on dérote chaque résidu vers une orientation commune, on combine. L
 compagnon s'additionne. Les speckles non.
 
 **KLIP** (Soummer, Pueyo & Larkin 2012) choisit ce modèle de façon optimale. Pour
-chaque pose, on construit une base de Karhunen–Loève à partir des vecteurs
+chaque pose, on construit une base de Karhunen-Loève à partir des vecteurs
 propres de la covariance des *autres* poses, et on projette sur les `K` premiers
 modes. La troncature à `K` est tout l'enjeu : les premiers modes capturent la PSF
 stellaire commune, les suivants commencent à ajuster le bruit propre de la pose.
@@ -143,7 +143,7 @@ quasi-statique sur une séquence, et comparé à l'ADI classique :
 
 | Dérive des speckles sur la séquence | KLIP vs ADI classique |
 |---|---|
-| 0,05 (optique figée) | **0,79×** — cADI gagne |
+| 0,05 (optique figée) | **0,79×**, cADI gagne |
 | 0,5 | 1,03× |
 | 1,0 | 1,57× |
 | 2,0 (forte dérive) | **2,28×** |
@@ -192,7 +192,7 @@ n'est pas de la détection de planètes.
 
 | Module | Contenu |
 |---|---|
-| `simulate` | `simulate_adi_sequence`, `SimConfig` — pupille, écran de phase de Kolmogorov, coronographe de Lyot, bruits de photon et de lecture |
+| `simulate` | `simulate_adi_sequence`, `SimConfig` : pupille, écran de phase de Kolmogorov, coronographe de Lyot, bruits de photon et de lecture |
 | `klip` | `klip_basis`, `klip_residual`, `klip_annular`, `klip_fullframe`, `rotation_threshold_mask` |
 | `adi` | `median_adi` (cADI), `pca_adi`, `klip_adi`, `optimize_n_modes` |
 | `metrics` | `snr_student`, `snr_map`, `significance_threshold`, `noise_profile`, `throughput`, `contrast_curve`, `aperture_flux` |
@@ -293,17 +293,17 @@ exactement, sans trou ni recouvrement entre anneaux.
 
 ## Références
 
-- Marois, C., Lafrenière, D., Doyon, R., Macintosh, B. & Nadeau, D. 2006, *ApJ*, **641**, 556 — imagerie différentielle angulaire
-- Lafrenière, D., Marois, C., Doyon, R., Nadeau, D. & Artigau, É. 2007, *ApJ*, **660**, 770 — LOCI et le critère de rotation
-- Soummer, R., Pueyo, L. & Larkin, J. 2012, *ApJL*, **755**, L28 — KLIP
-- Amara, A. & Quanz, S. P. 2012, *MNRAS*, **427**, 948 — PYNPOINT
-- Pueyo, L. 2016, *ApJ*, **824**, 117 — modélisation directe KLIP
-- Mawet, D. et al. 2014, *ApJ*, **792**, 97 — statistiques à petit échantillon
-- Lagrange, A.-M. et al. 2010, *Science*, **329**, 57 — compagnon négatif
-- Wertz, O. et al. 2017, *A&A*, **598**, A83 — budget d'erreur NEGFC
-- Jensen-Clem, R. et al. 2018, *AJ*, **155**, 19 — conventions des courbes de contraste
-- Gonzalez, C. A. G. et al. 2017, *AJ*, **154**, 7 — VIP
-- Wang, J. J. et al. 2015, ascl:1506.001 — pyKLIP
+- Marois, C., Lafrenière, D., Doyon, R., Macintosh, B. & Nadeau, D. 2006, *ApJ*, **641**, 556: imagerie différentielle angulaire
+- Lafrenière, D., Marois, C., Doyon, R., Nadeau, D. & Artigau, É. 2007, *ApJ*, **660**, 770: LOCI et le critère de rotation
+- Soummer, R., Pueyo, L. & Larkin, J. 2012, *ApJL*, **755**, L28: KLIP
+- Amara, A. & Quanz, S. P. 2012, *MNRAS*, **427**, 948: PYNPOINT
+- Pueyo, L. 2016, *ApJ*, **824**, 117: modélisation directe KLIP
+- Mawet, D. et al. 2014, *ApJ*, **792**, 97: statistiques à petit échantillon
+- Lagrange, A.-M. et al. 2010, *Science*, **329**, 57: compagnon négatif
+- Wertz, O. et al. 2017, *A&A*, **598**, A83: budget d'erreur NEGFC
+- Jensen-Clem, R. et al. 2018, *AJ*, **155**, 19: conventions des courbes de contraste
+- Gonzalez, C. A. G. et al. 2017, *AJ*, **154**, 7: VIP
+- Wang, J. J. et al. 2015, ascl:1506.001: pyKLIP
 
 Pour de la science en production, utilisez [VIP](https://github.com/vortex-exoplanet/VIP)
 ou [pyKLIP](https://github.com/bpiehl/pyklip) : ils sont validés sur données
@@ -313,4 +313,4 @@ wrapper.
 
 ## Licence
 
-MIT — voir [LICENSE](LICENSE).
+MIT, voir [LICENSE](LICENSE).

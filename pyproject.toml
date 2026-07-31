@@ -42,9 +42,9 @@ dev = ["pytest>=7.0", "pytest-cov", "ruff"]
 all = ["astropy>=5.0", "matplotlib>=3.6", "tqdm>=4.60", "pytest>=7.0"]
 
 [project.urls]
-Homepage = "https://github.com/francoisb12/exoklip"
-Repository = "https://github.com/francoisb12/exoklip"
-Issues = "https://github.com/francoisb12/exoklip/issues"
+Homepage = "https://github.com/francoisbarge8/exoklip"
+Repository = "https://github.com/francoisbarge8/exoklip"
+Issues = "https://github.com/francoisbarge8/exoklip/issues"
 
 [project.scripts]
 exoklip = "exoklip.cli:main"

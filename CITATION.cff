@@ -10,10 +10,10 @@ type: software
 authors:
   - family-names: Barge
     given-names: François
-    alias: francoisb12
+    alias: francoisbarge8
 license: MIT
 version: 0.1.0
-repository-code: "https://github.com/francoisb12/exoklip"
+repository-code: "https://github.com/francoisbarge8/exoklip"
 keywords:
   - astronomy
   - exoplanets

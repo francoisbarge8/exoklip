@@ -1,6 +1,6 @@
 # exoklip
 
-[![CI](https://github.com/francoisb12/exoklip/actions/workflows/ci.yml/badge.svg)](https://github.com/francoisb12/exoklip/actions/workflows/ci.yml)
+[![CI](https://github.com/francoisbarge8/exoklip/actions/workflows/ci.yml/badge.svg)](https://github.com/francoisbarge8/exoklip/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -27,7 +27,7 @@ after annular KLIP.*
 ## Install
 
 ```bash
-git clone https://github.com/francoisb12/exoklip.git
+git clone https://github.com/francoisbarge8/exoklip.git
 cd exoklip
 pip install -e ".[plot]"
 ```
@@ -82,7 +82,7 @@ of the star from the sequence itself, subtract it, rotate each residual back to 
 common orientation, combine. The companion adds up. The speckles don't.
 
 **KLIP** (Soummer, Pueyo & Larkin 2012) picks that model optimally. For each
-frame it builds a Karhunen–Loève basis from the eigenvectors of the covariance of
+frame it builds a Karhunen-Loève basis from the eigenvectors of the covariance of
 the *other* frames, and projects onto the first `K` modes. Truncating at `K` is
 the point: early modes capture the stellar PSF every frame shares, later ones
 start fitting that frame's own noise.
@@ -122,8 +122,8 @@ from the reference apertures scattering a little more once a companion is
 present.
 
 That check found two bugs. My simulator was normalising on the diffraction-
-limited PSF while the aberrated star had lost half its core flux to the halo — a
-factor 2.4. And my contrast curve was adding the residual-annulus bias to the
+limited PSF while the aberrated star had lost half its core flux to the halo, a
+factor of 2.4. And my contrast curve was adding the residual-annulus bias to the
 flux a companion needs to carry, when the detection statistic already subtracts
 it. That second one cost another 20 %, in the optimistic direction, because KLIP
 over-subtracts and the bias is negative. Both are fixed.
@@ -137,7 +137,7 @@ over a sequence and compared against classical ADI:
 
 | Speckle drift over the sequence | KLIP vs classical ADI |
 |---|---|
-| 0.05 (frozen optics) | **0.79×** — cADI wins |
+| 0.05 (frozen optics) | **0.79×**, cADI wins |
 | 0.5 | 1.03× |
 | 1.0 | 1.57× |
 | 2.0 (strong drift) | **2.28×** |
@@ -183,7 +183,7 @@ detector defects. It is not planet detection.
 
 | Module | What's in it |
 |---|---|
-| `simulate` | `simulate_adi_sequence`, `SimConfig` — pupil, Kolmogorov phase screen, Lyot coronagraph, photon and read noise |
+| `simulate` | `simulate_adi_sequence`, `SimConfig`: pupil, Kolmogorov phase screen, Lyot coronagraph, photon and read noise |
 | `klip` | `klip_basis`, `klip_residual`, `klip_annular`, `klip_fullframe`, `rotation_threshold_mask` |
 | `adi` | `median_adi` (cADI), `pca_adi`, `klip_adi`, `optimize_n_modes` |
 | `metrics` | `snr_student`, `snr_map`, `significance_threshold`, `noise_profile`, `throughput`, `contrast_curve`, `aperture_flux` |
@@ -281,17 +281,17 @@ and no overlap between annuli.
 
 ## References
 
-- Marois, C., Lafrenière, D., Doyon, R., Macintosh, B. & Nadeau, D. 2006, *ApJ*, **641**, 556 — angular differential imaging
-- Lafrenière, D., Marois, C., Doyon, R., Nadeau, D. & Artigau, É. 2007, *ApJ*, **660**, 770 — LOCI and the rotation criterion
-- Soummer, R., Pueyo, L. & Larkin, J. 2012, *ApJL*, **755**, L28 — KLIP
-- Amara, A. & Quanz, S. P. 2012, *MNRAS*, **427**, 948 — PYNPOINT
-- Pueyo, L. 2016, *ApJ*, **824**, 117 — KLIP forward modelling
-- Mawet, D. et al. 2014, *ApJ*, **792**, 97 — small-sample statistics
-- Lagrange, A.-M. et al. 2010, *Science*, **329**, 57 — negative fake companion
-- Wertz, O. et al. 2017, *A&A*, **598**, A83 — NEGFC error budget
-- Jensen-Clem, R. et al. 2018, *AJ*, **155**, 19 — contrast curve conventions
-- Gonzalez, C. A. G. et al. 2017, *AJ*, **154**, 7 — VIP
-- Wang, J. J. et al. 2015, ascl:1506.001 — pyKLIP
+- Marois, C., Lafrenière, D., Doyon, R., Macintosh, B. & Nadeau, D. 2006, *ApJ*, **641**, 556: angular differential imaging
+- Lafrenière, D., Marois, C., Doyon, R., Nadeau, D. & Artigau, É. 2007, *ApJ*, **660**, 770: LOCI and the rotation criterion
+- Soummer, R., Pueyo, L. & Larkin, J. 2012, *ApJL*, **755**, L28: KLIP
+- Amara, A. & Quanz, S. P. 2012, *MNRAS*, **427**, 948: PYNPOINT
+- Pueyo, L. 2016, *ApJ*, **824**, 117: KLIP forward modelling
+- Mawet, D. et al. 2014, *ApJ*, **792**, 97: small-sample statistics
+- Lagrange, A.-M. et al. 2010, *Science*, **329**, 57: negative fake companion
+- Wertz, O. et al. 2017, *A&A*, **598**, A83: NEGFC error budget
+- Jensen-Clem, R. et al. 2018, *AJ*, **155**, 19: contrast curve conventions
+- Gonzalez, C. A. G. et al. 2017, *AJ*, **154**, 7: VIP
+- Wang, J. J. et al. 2015, ascl:1506.001: pyKLIP
 
 If you need this for real science, use [VIP](https://github.com/vortex-exoplanet/VIP)
 or [pyKLIP](https://github.com/bpiehl/pyklip). They're validated on real data and
@@ -300,4 +300,4 @@ back to its paper, and nothing hides behind a wrapper.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
