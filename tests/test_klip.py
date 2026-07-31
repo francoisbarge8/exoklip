@@ -148,3 +148,70 @@ def test_mode_sweep_matches_individual_calls():
             cube, angles, fwhm=4.0, n_modes=k, r_min=8.0, r_max=24.0
         )
         assert np.allclose(swept[k], single, atol=1e-10, equal_nan=True)
+
+
+@pytest.mark.parametrize("n_segments", [1, 4, "auto"])
+def test_annular_zones_partition_the_field_exactly(n_segments):
+    """Every pixel of the requested range is processed exactly once.
+
+    A gap between annuli leaves untouched starlight that later reads as a
+    detection; an overlap means some pixels are subtracted twice. Neither shows
+    up in the reduced image as anything but plausible structure, so it is
+    checked directly on the map of processed pixels.
+    """
+    from exoklip.core import dist_grid, frame_center
+
+    rng = np.random.default_rng(0)
+    cube = rng.normal(size=(12, 101, 101))
+    angles = np.linspace(-25.0, 25.0, 12)
+
+    residuals = klip.klip_annular(
+        cube, angles, fwhm=4.0, n_modes=4, asize=2.0,
+        n_segments=n_segments, r_min=8.0, r_max=40.0,
+    )
+    processed = np.isfinite(residuals[0])
+    radial = dist_grid((101, 101), center=frame_center((101, 101)))
+    requested = (radial >= 8.0) & (radial < 40.0)
+
+    assert int((requested & ~processed).sum()) == 0, "gap between annuli"
+    assert int((~requested & processed).sum()) == 0, "processing outside the range"
+
+
+def test_annular_coverage_does_not_depend_on_the_segmentation():
+    from exoklip.core import dist_grid, frame_center
+
+    rng = np.random.default_rng(1)
+    cube = rng.normal(size=(12, 101, 101))
+    angles = np.linspace(-25.0, 25.0, 12)
+    counts = {
+        seg: int(
+            np.isfinite(
+                klip.klip_annular(
+                    cube, angles, fwhm=4.0, n_modes=4, asize=2.0,
+                    n_segments=seg, r_min=8.0, r_max=40.0,
+                )[0]
+            ).sum()
+        )
+        for seg in (1, 4, "auto")
+    }
+    assert len(set(counts.values())) == 1, f"segmentation changes coverage: {counts}"
+
+
+def test_parallel_execution_is_bitwise_identical():
+    """Threads must not change a single bit — otherwise there is a race."""
+    from exoklip.metrics import snr_map
+
+    rng = np.random.default_rng(2)
+    cube = rng.normal(size=(12, 101, 101))
+    angles = np.linspace(-25.0, 25.0, 12)
+
+    serial = klip.klip_annular(cube, angles, fwhm=4.0, n_modes=4, r_min=8.0, r_max=40.0, n_jobs=1)
+    threaded = klip.klip_annular(cube, angles, fwhm=4.0, n_modes=4, r_min=8.0, r_max=40.0, n_jobs=4)
+    assert np.allclose(serial, threaded, equal_nan=True, rtol=0, atol=0)
+
+    image = np.nanmedian(serial, axis=0)
+    assert np.allclose(
+        snr_map(image, 4.0, r_min=10.0, r_max=40.0, n_jobs=1),
+        snr_map(image, 4.0, r_min=10.0, r_max=40.0, n_jobs=4),
+        equal_nan=True, rtol=0, atol=0,
+    )
