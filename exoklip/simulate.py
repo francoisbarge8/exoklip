@@ -47,14 +47,14 @@ Sivaramakrishnan, A. et al. 2001, ApJ, 552, 397 (Lyot coronagraph propagation)
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from typing import Any, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
 
 from .core import frame_center, dist_grid
-from .inject import inject_companions_cube, companion_position
+from .inject import inject_companions_cube
 from .psf import normalize_psf, _aperture_sum, _airy_fwhm_factor
 
 __all__ = [

@@ -31,13 +31,7 @@ from scipy import ndimage, optimize
 
 from .core import dist_grid, frame_center
 from .inject import companion_position, remove_companion
-from .metrics import (
-    _student_quantile,
-    aperture_flux,
-    significance_threshold,
-    snr_map,
-    snr_student,
-)
+from .metrics import _student_quantile, aperture_flux, snr_map
 from .psf import fit_gaussian_psf
 
 __all__ = ["detect_sources", "negfc_flux", "characterize"]

@@ -302,7 +302,6 @@ def _demo() -> int:
     which is the whole point of the banner at the top of this file.
     """
     from exoklip.inject import companion_position
-    from exoklip.psf import gaussian_2d
     from exoklip.simulate import SimConfig, simulate_adi_sequence
 
     rng = np.random.default_rng(5)

@@ -9,9 +9,8 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from functools import partial
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
 import numpy as np
 
